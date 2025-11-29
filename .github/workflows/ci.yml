@@ -1,0 +1,69 @@
+name: Build & Security Analysis Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      EMAIL_TO: "aarsh.chaurasia.201007@gmail.com"
+      EMAIL_FROM: "aarshgdsc@gmail.com"
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+      GROQ_KEY: ${{ secrets.GROQ_KEY }}
+      GHCR_PAT: ${{ secrets.GHCR_PAT }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install MinGW
+        run: sudo apt-get update && sudo apt-get install -y mingw-w64
+
+      - name: Build Windows App
+        run: |
+          mkdir -p build
+          x86_64-w64-mingw32-gcc \
+            src/app/*.c \
+            -I include \
+            -o build/SampleEnterpriseApp.exe \
+            -luser32
+
+      - name: Run Unit Tests
+        run: |
+          x86_64-w64-mingw32-gcc tests/test_operations.c -o test.exe
+          ./test.exe || true
+
+      - name: Upload Binary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-application
+          path: build/SampleEnterpriseApp.exe
+
+      - name: Pull SecuriForge Image
+        run: docker pull ghcr.io/aarshx05/securiforge:latest
+
+      - name: Run SecuriForge Analysis
+        run: |
+          mkdir -p artifacts
+          docker run --rm -v $PWD:/repo \
+            -e EMAIL_TO="$EMAIL_TO" \
+            -e EMAIL_FROM="$EMAIL_FROM" \
+            -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
+            -e GROQ_KEY="$GROQ_KEY" \
+            ghcr.io/aarshx05/securiforge:latest \
+            python3 unified_binary_analysis.py /repo/build/SampleEnterpriseApp.exe \
+              --ai-report \
+              --export-pdf /repo/artifacts/report.pdf \
+              --groq-key "$GROQ_KEY" \
+              -o /repo/artifacts/report.json || true
+
+      - name: Upload SecuriForge Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: securiforge-analysis
+          path: artifacts/
