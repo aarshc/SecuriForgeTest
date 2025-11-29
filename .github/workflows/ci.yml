@@ -35,8 +35,13 @@ jobs:
 
       - name: Run Unit Tests
         run: |
-          x86_64-w64-mingw32-gcc tests/test_operations.c -o test.exe
+          x86_64-w64-mingw32-gcc \
+            tests/test_operations.c \
+            src/app/operations.c \
+            -I include \
+            -o test.exe
           ./test.exe || true
+
 
       - name: Upload Binary Artifact
         uses: actions/upload-artifact@v4
