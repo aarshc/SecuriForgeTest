@@ -38,9 +38,12 @@ jobs:
           x86_64-w64-mingw32-gcc \
             tests/test_operations.c \
             src/app/operations.c \
+            src/app/logger.c \
+            src/app/config.c \
             -I include \
             -o test.exe
           ./test.exe || true
+
 
 
       - name: Upload Binary Artifact
